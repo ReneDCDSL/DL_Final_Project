@@ -138,6 +138,7 @@ class Siamese2(nn.Module):
         #     nn.Linear(84, 10),
         #     nn.ReLU()
         # )
+        # test change
         self.feats_classifier = nn.Sequential(
             nn.Linear(64, 4096),
             nn.ReLU(),
