@@ -39,6 +39,12 @@ The objective of this project is to design a mini “deep learning framework” 
 tensor operations and the standard math library, hence in particular *without using autograd or the
 neural-network modules*.
 
-### 2.1 Objective 
-
+### 2.1 To implement
+- Sequential to combine layers
+- Linear layers
+- Activations:
+    - Tanh
+    - ReLU
+- SGD optim
+- MSE loss
 

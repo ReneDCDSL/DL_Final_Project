@@ -14,26 +14,26 @@ from dlc_practical_prologue import load_data
 from dlc_practical_prologue import generate_pair_sets
 
 #%%
-N = 1000
-pairs = generate_pair_sets(N)
+# N = 1000
+# pairs = generate_pair_sets(N)
 
-# Train
-train_input = pairs[0]
-train_target = pairs[1]
-train_classes = pairs[2]
+# # Train
+# train_input = pairs[0]
+# train_target = pairs[1]
+# train_classes = pairs[2]
 
-# Test
-test_input = pairs[3]
-test_target = pairs[4]
-test_classes = pairs[5]
+# # Test
+# test_input = pairs[3]
+# test_target = pairs[4]
+# test_classes = pairs[5]
 
-print("Sanity check")
-print(f"{train_input.shape=}")
-print(f"{train_target.shape=}")
-print(f"{train_classes.shape=}")
-print(f"{test_input.shape=}")
-print(f"{test_target.shape=}")
-print(f"{test_classes.shape=}")
+# print("Sanity check")
+# print(f"{train_input.shape=}")
+# print(f"{train_target.shape=}")
+# print(f"{train_classes.shape=}")
+# print(f"{test_input.shape=}")
+# print(f"{test_target.shape=}")
+# print(f"{test_classes.shape=}")
 
 # %%
 # Build different convnet architecture to predict target given input (and classes)
@@ -189,14 +189,14 @@ class Siamese3(nn.Module):
             nn.ReLU()
         )
         self.lin = nn.Sequential(
-            nn.Linear(128, 4096),
+            nn.Linear(128, 1000),
             # nn.ReLU(),
             # nn.Linear(4096, 1),
             # nn.ReLU(),
             nn.Sigmoid()
         )
         self.out = nn.Sequential(
-            nn.Linear(4096, 1),
+            nn.Linear(1000, 1),
             # nn.Sigmoid()
         )
     
@@ -210,26 +210,109 @@ class Siamese3(nn.Module):
         x2 = self.lin(x2)
 
         # x  = x1 * x2
-        x  = x1 - x2  # if <= 0, then x1 <= x2 
         # x = torch.flatten(x, 1)
+        # x1 = self.out(x1)
+        # x2 = self.out(x2)
+
+        x  = x1 - x2  # if <= 0, then x1 <= x2 
         x = self.out(x)
         return x
 
+class Siamese4(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        # Class detection
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=4),
+            nn.MaxPool2d(kernel_size=4, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(16),
+            nn.Conv2d(16, 32, kernel_size=4),
+            nn.MaxPool2d(kernel_size=4, stride=1),
+            nn.ReLU()
+        )
+        self.fc = nn.Sequential(
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 10),
+            # nn.Softmax()
+        )
+
+        # BiggerOrNot detection
+        self.cls_head = nn.Sequential(
+            nn.Linear(2, 2048),
+            nn.ReLU(),
+            nn.Linear(2048, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        # Separate pair from input
+        x1 = x[:, 0, :, :].unsqueeze(1)
+        x2 = x[:, 1, :, :].unsqueeze(1)
+
+        x1 = self.conv(x1)
+        x1 = x1.view(-1, 128)
+        x1 = self.fc(x1)
+        _, x1 = torch.max(x1, 1)  # Get max logit
+        x1.unsqueeze_(1)
+
+        x2 = self.conv(x2)
+        x2 = x2.view(-1, 128)
+        x2 = self.fc(x2)
+        _, x2 = torch.max(x2, 1)
+        x2.unsqueeze_(1)
+
+        x = torch.cat((x1, x2), 1)
+        x = self.cls_head(x.float())
+        return x
+
 # %%
-# General
-# Doesn't work for siamese networks
-def train_model(model, train_input, train_target, loss_fn, optimizer):
+# Siamese
+
+def todo():
+    # Classify images 
+    out1 = lenet(img1)
+    out2 = lenet(img2)
+
+    # Then use predicted classes in a second model
+    # to predict which one is bigger or not
+
+def train_siamese(model, train_input, train_target, loss_fn, optimizer):
     # compute loss
     output = model(train_input)
-    if isinstance(output, tuple):
-        output, _ = output
 
+    # To avoid warning
+    train_target.unsqueeze_(1)
     loss = loss_fn(output, train_target)
 
     # optimize
     model.zero_grad()
     loss.backward()
     optimizer.step()
+
+def count_errs_siamese(model, data_input, data_target):
+    model.eval()
+
+    with torch.no_grad():
+        probs = model(data_input)
+    
+    probs = torch.flatten(probs)
+    # print(f"{probs=}")
+    # print(f"predicted class {(probs > 0.5)}")
+    # print(f"{data_target=}")
+
+    return (data_target != (probs > 0.5)).sum().item()
+
+def target_from_cls(pair0, pair1):
+    if pair0 <= pair1:
+        return 1
+    return 0
 
 def count_errs(model, data_input, data_target):
     with torch.no_grad():
@@ -239,48 +322,6 @@ def count_errs(model, data_input, data_target):
         _, preds = torch.max(output, 1)
     
     return (preds != data_target).sum().item()
-
-# %%
-# Siamese
-
-def train_siamese(model, train_input, train_target, loss_fn, optimizer):
-    # Get separate imgs
-    img1 = train_input[:, 0, :, :]  # All first pair
-    img1.unsqueeze_(1)
-    img2 = train_input[:, 1, :, :]  # All second pair
-    img2.unsqueeze_(1)
-
-    # compute loss
-    output = model(img1, img2)
-
-    # To avoid warning
-    train_target.unsqueeze_(1)
-    loss = loss_fn(output, train_target.float())
-
-    # optimize
-    model.zero_grad()
-    loss.backward()
-    optimizer.step()
-
-def count_errs_siamese(model, data_input, data_target):
-    # Get separate imgs
-    img1 = data_input[:, 0, :, :]  # All first pair
-    img1.unsqueeze_(1)
-    img2 = data_input[:, 1, :, :]  # All second pair
-    img2.unsqueeze_(1)
-
-    model.eval()
-
-    with torch.no_grad():
-        probs = model(img1, img2)
-    
-    probs = torch.flatten(probs)
-    # print(f"{probs=}")
-    # print(f"predicted class {(probs > 0.5)}")
-    # print(f"{data_target=}")
-
-    # return (data_target != (probs > 0.5)).sum().item()
-    return (data_target != (probs > 0.5)).sum().item()
 
 # %%
 # Test simple image classifier on MNIST
@@ -323,15 +364,30 @@ if False:
 # %%
 # Train with minibatches
 scores = []
-iters = 10  # for testing
+iters = 1  # for testing
+nb_epochs, mini_batch_size = 100, 100
+learning_rate = 1e-3
+N = 1000
 
 for _ in range(iters):
-    nb_epochs, mini_batch_size = 25, 100
-    learning_rate = 1e-3
-    model = Siamese3()
+    # Generate new random pairs for each iteration
+    pairs = generate_pair_sets(N)
 
-    # loss_fn = nn.BCELoss()  # Don't forget to change loss with model
-    loss_fn = nn.BCEWithLogitsLoss()  # Siamese3
+    # Train
+    train_input = pairs[0]
+    train_target = pairs[1].float()
+    train_classes = pairs[2]
+
+    # Test
+    test_input = pairs[3]
+    test_target = pairs[4].float()
+    test_classes = pairs[5]
+
+    model = Siamese4()
+
+    loss_fn = nn.BCELoss()  # Don't forget to change loss with model
+    # loss_fn = nn.BCEWithLogitsLoss()  # Siamese3
+    # loss_fn = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     for _ in tqdm(range(nb_epochs)):
@@ -363,7 +419,7 @@ print(f"test_error {test_err_rates.mean():.02f}% (std {test_err_rates.std():.02f
 
 # %%
 # Some tests
-randid = torch.randint(1001, (1,)).item()
+randid = torch.randint(1000, (1,)).item()
 x = train_input[randid]
 x1 = x[0]
 x2 = x[1]
