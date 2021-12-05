@@ -39,6 +39,131 @@ from dlc_practical_prologue import generate_pair_sets
 # Build different convnet architecture to predict target given input (and classes)
 # Look into weight sharing and auxiliary losses
 
+class Siamese(nn.Module):
+    def __init__(self):
+
+        super().__init__()
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, 32, 3),
+            nn.MaxPool2d(2),
+            nn.ReLU(),
+            nn.BatchNorm2d(32),
+            nn.Conv2d(32, 64, 6),
+            nn.ReLU(),
+            nn.BatchNorm2d(64)
+        )
+
+        self.fc1 = nn.Sequential(
+            nn.Linear(64, 256),
+            nn.ReLU(),
+            nn.BatchNorm1d(256),
+            nn.Linear(256, 10),
+            nn.ReLU()
+        )
+
+        self.fc2 = nn.Sequential(
+            nn.Linear(20, 2),
+            nn.ReLU()
+        )
+
+    def forward(self, x):
+        x1, x2 = x[:, 0], x[:, 1]
+        x1 = x1.reshape(-1, 1, 14, 14)
+        x2 = x2.reshape(-1, 1, 14, 14)
+
+        x1 = self.conv(x1)
+        x1 = self.fc1(x1)
+        x2 = self.conv(x2)
+        x2 = self.fc1(x2)
+
+        y = torch.cat((x1, x2), dim=1)
+        x = self.fc3(x)
+        return y, (x1, x2)
+
+class SiameseModel(nn.Module):
+    """
+    Class for the siamese model, utilizing weight sharing
+    The input is considered as two separate 2D tensors (images)
+    Provides direct 2-class prediction and two 10-class predictions
+    Batch normalization and skip connections can be activated or deactivated at will
+    Network architecture:
+        1. Split of the original input into two tensors of size [mini_batch_size, 1, 14, 14]
+        === Architecture of each siamese branch ===
+        2. 2D convolution of the input with a kernel size of 3x3 into `nbch1` output channels
+        3. 2D max-pooling of the convolution output with a kernel size of 2x2
+        4. ReLU activation
+        5. Batch normalization
+        6. Skip connection as an activated linear layer from the original input to the current output
+        7. 2D convolution with a kernel size of 6x6 into `nbch2` output channels
+        8. ReLU activation
+        9. Batch normalization
+        10. Skip connection as an activated linear layer from the original input to the current output
+        11. Fully connected layer with `nbfch` output units
+        12. ReLU activation
+        13. Batch normalization
+        14. Fully connected layer with 10 output units
+        15. ReLU activation
+        ===========================================
+        16. Concatenation of the two branch outputs into a tensor of size [mini_batch_size, 20]
+        17. Fully connected layer with 2 output units
+        18. ReLU activation
+    """
+
+    def __init__(self, mini_batch_size, nbch1=32, nbch2=64, nbfch=256, batch_norm=True, skip_connections=True):
+        super(SiameseModel, self).__init__()
+        self.nbch1 = nbch1
+        self.nbch2 = nbch2
+        self.nbfch = nbfch
+        self.batch_norm = batch_norm
+        self.skip_connections = skip_connections
+
+        self.conv1 = nn.Conv2d(1, nbch1, 3)
+        if batch_norm and mini_batch_size > 1:
+            self.bn1 = nn.BatchNorm2d(nbch1)
+        if skip_connections:
+            self.skip1 = nn.Linear(1 * 14 * 14, nbch1 * 6 * 6)
+        self.conv2 = nn.Conv2d(nbch1, nbch2, 6)
+        if batch_norm and mini_batch_size > 1:
+            self.bn2 = nn.BatchNorm2d(nbch2)
+        if skip_connections:
+            self.skip2 = nn.Linear(1 * 14 * 14, nbch2 * 1 * 1)
+        self.fc1 = nn.Linear(nbch2, nbfch)
+        if self.batch_norm and mini_batch_size > 1:
+            self.bn3 = nn.BatchNorm1d(nbfch)
+        self.fc2 = nn.Linear(nbfch, 10)
+        self.fc3 = nn.Linear(20, 2)
+
+    def __forward_one_branch(self, x):
+        mini_batch_size = x.size(0)
+        y = F.relu(F.max_pool2d(self.conv1(x), 2))
+        if self.batch_norm and mini_batch_size > 1:
+            y = self.bn1(y)
+        if self.skip_connections:
+            y += F.relu(self.skip1(x.view(mini_batch_size, 1 * 14 * 14)).view(y.size()))
+        y = F.relu(self.conv2(y))
+        if self.batch_norm and mini_batch_size > 1:
+            y = self.bn2(y)
+        if self.skip_connections:
+            y += F.relu(self.skip2(x.view(mini_batch_size, 1 * 14 * 14)).view(y.size()))
+        y = F.relu(self.fc1(y.view(-1, self.nbch2)))
+        if self.batch_norm and mini_batch_size > 1:
+            y = self.bn3(y)
+        y = F.relu(self.fc2(y))
+        return y
+
+    def forward(self, x):
+        x1, x2 = x[:, 0], x[:, 1]
+        x1 = x1.reshape(-1, 1, 14, 14)
+        x2 = x2.reshape(-1, 1, 14, 14)
+
+        y1 = self.__forward_one_branch(x1)
+        y2 = self.__forward_one_branch(x2)
+
+        y = torch.cat((y1, y2), dim=1)
+        y = F.relu(self.fc3(y))
+        return y, (y1, y2)
+
 class LeNetLike(nn.Module):
     # For one channel
     def __init__(self):
