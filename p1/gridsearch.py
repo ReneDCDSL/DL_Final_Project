@@ -1,6 +1,7 @@
 #%%
 import time
 
+import pickle as pkl
 import torch
 
 from dlc_practical_prologue import generate_pair_sets
@@ -57,44 +58,49 @@ def gridsearch_siamese(params_grid, n=2, epochs=15, verb=True):
     return grid_results
             
 def sort_dict(results, reverse=True):
-    return {k: v for k, v in sorted(res.items(), key=lambda item: item[1], reverse=True)}
+    return {k: v for k, v in sorted(results.items(), key=lambda item: item[1], reverse=True)}
 
 #%%
 if __name__ == "__main__":
     # Generate params to search
-    params_grid = [
-        (int(ch1), int(ch2), int(fc), lr, lw) 
-            for ch1 in [2 ** exp for exp in (3, 4, 5, 6)]
-            for ch2 in [2 ** exp for exp in (3, 4, 5, 6)]
-            for fc in [2 ** exp for exp in (6, 7, 8, 9)]
-            for lr in (0.001, 0.01, 0.1, 0.25, 1)
-            for lw in [(1, 10 ** exp) for exp in (0, -0.5, -1.5, -2, -3, -4)] + [(1, 0),]
-    ]
-
-    # print(params_grid)
+    # params_grid = [
+    #     (int(ch1), int(ch2), int(fc), lr, lw) 
+    #         for ch1 in [2 ** exp for exp in (3, 4, 5, 6)]
+    #         for ch2 in [2 ** exp for exp in (3, 4, 5, 6)]
+    #         for fc in [2 ** exp for exp in (6, 7, 8, 9)]
+    #         for lr in (0.001, 0.01, 0.1, 0.25, 1)
+    #         for lw in [(1, 10 ** exp) for exp in (0, -0.5, -1.5, -2, -3, -4)] + [(1, 0),]
+    # ]
+    # results = gridsearch_siamese(params_grid, epochs=25, n=10)
 
     # Test grid
-    # params_grid = [(int(ch1), int(ch2), int(fc), lr, lw) 
-    #             for ch1 in [2 ** exp for exp in (1, 2)]
-    #             for ch2 in [2 ** exp for exp in (1, 2)]
-    #             for fc in [2 ** exp for exp in (1, 2)]
-    #             for lr in (0.001, 1)
-    #             for lw in ((1, 10 ** -0.5), (0.5, 0.5))]
+    params_grid = [(int(ch1), int(ch2), int(fc), lr, lw) 
+                for ch1 in [2 ** exp for exp in (1, 2)]
+                for ch2 in [2 ** exp for exp in (1, 2)]
+                for fc in [2 ** exp for exp in (1, 2)]
+                for lr in (0.001, 1)
+                for lw in ((1, 10 ** -0.5), (0.5, 0.5))]
+    results = gridsearch_siamese(params_grid, epochs=2, n=2)
 
-    results = gridsearch_siamese(params_grid, epochs=25, n=10)
     res2 = sort_dict(results["siamese2"])
     res10 = sort_dict(results["siamese10"])
 
+    # Save to pickle
+    with open("./results/grid_search_res2.pkl", "wb") as f:
+        pkl.dump(res2, f)
+    with open("./results/grid_search_res10.pkl", "wb") as f:
+        pkl.dump(res10, f)
+
 # %%
 # Testing
+if False:
+    res = {
+        "low": [(0.49, 0.09)],
+        "medium": [(0.58, 0.1)],
+        "high": [(0.59, 0.1)],
+    }
 
-res = {
-    "low": [(0.49, 0.09)],
-    "medium": [(0.58, 0.1)],
-    "high": [(0.59, 0.1)],
-}
-
-# Print results in descending order by accuracy
-{k: v for k, v in sorted(res.items(), key=lambda item: item[1], reverse=True)}
+    # Print results in descending order by accuracy
+    {k: v for k, v in sorted(res.items(), key=lambda item: item[1], reverse=True)}
 
 # %%
