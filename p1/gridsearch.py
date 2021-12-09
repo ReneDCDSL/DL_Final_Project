@@ -1,4 +1,5 @@
 #%%
+import os
 import time
 
 import pickle as pkl
@@ -6,6 +7,7 @@ import torch
 
 from dlc_practical_prologue import generate_pair_sets
 from siamese import train_siamese, standardize, siamese_accuracy
+from models import train_baseline, baseline_accuracy
 
 #%%
 def gridsearch_siamese(params_grid, n=2, epochs=15, verb=True):
@@ -16,14 +18,14 @@ def gridsearch_siamese(params_grid, n=2, epochs=15, verb=True):
     # Nb of pairs to generate
     N = 1000
 
-    grid_results = {"siamese2": {}, "siamese10": {}}
+    grid_results = {"baseline": {}, "siamese2": {}, "siamese10": {}}
 
     # Loop through each scenario
     for i, scenario in enumerate(params_grid):
         print(f"{i + 1}/{len(params_grid)} Scenario", scenario)
         t1 = time.perf_counter()
 
-        # Set keys
+        # Set keys and params
         grid_results["siamese2"][scenario] = []
         grid_results["siamese10"][scenario]  = []
         ch1, ch2, fc, lr, lw = scenario
@@ -56,12 +58,63 @@ def gridsearch_siamese(params_grid, n=2, epochs=15, verb=True):
             print(f"Time {time.perf_counter() - t1:.2f}s")
 
     return grid_results
-            
+
+def gridsearch_baseline(params_grid, epochs=15, n=2, verb=True):
+    # Loop through each scenario, train the network n times
+    # and compute accuracy
+    # Return a dict with all scenarios and mean accuracies (+std)
+
+    # Generate data
+    N = 1000
+    data = [generate_pair_sets(N) for _ in range(n)]
+
+    grid_results = {"baseline": {}}
+
+    # Loop through each scenario
+    for i, scenario in enumerate(params_grid):
+        print(f"{i + 1}/{len(params_grid)} Scenario", scenario)
+        t1 = time.perf_counter()
+
+        # Set keys and params
+        grid_results["baseline"][scenario] = []
+        ch1, ch2, fc1, fc2, lr, standard = scenario
+
+        # Train number of times
+        scores = []
+        for d in data:
+            # Get data
+            train_input, train_target, train_classes, test_input, test_target, test_classes = d
+            if standard:
+                train_input, test_input = standardize(train_input), standardize(test_input)
+
+            # Train the network wrt scenario
+            _, train_acc, test_acc, model = train_baseline(train_input, train_target, ch1=ch1, ch2=ch2, fc1=fc1, fc2=fc2, lr=lr, epochs=epochs, verb=True)
+
+            # Compute test accuracy
+            test_acc = baseline_accuracy(model, test_input, test_target)
+            scores.append(test_acc)
+
+        # At the end of each scenario, get mean accuracy and std
+        # of the runs
+        scores = torch.FloatTensor(scores)
+        
+        grid_results["baseline"][scenario].append((scores.mean().item(), scores.std().item()))
+
+        if verb:
+            print(f"baseline test accuracy: {scores.mean() * 100:.2f}% (+/- {scores.std() * 100:.2f}%)")
+
+    return grid_results
+
 def sort_dict(results, reverse=True):
     return {k: v for k, v in sorted(results.items(), key=lambda item: item[1], reverse=True)}
 
 #%%
 if __name__ == "__main__":
+    os.environ["PYTORCH_DATA_DIR"] = "/home/olivier/Documents/projects/courses/DL/data"
+
+    # Siamese
+    # print("Gridsearching for siamese")
+    #
     # Generate params to search
     # params_grid = [
     #     (int(ch1), int(ch2), int(fc), lr, lw) 
@@ -69,38 +122,48 @@ if __name__ == "__main__":
     #         for ch2 in [2 ** exp for exp in (3, 4, 5, 6)]
     #         for fc in [2 ** exp for exp in (6, 7, 8, 9)]
     #         for lr in (0.001, 0.01, 0.1, 0.25, 1)
-    #         for lw in [(1, 10 ** exp) for exp in (0, -0.5, -1.5, -2, -3, -4)] + [(1, 0),]
+    #         for lw in [(1, 10 ** exp) for exp in (0, -0.5, -1.5, -2, -3, -4)] + [(1, 0), (0, 1)]
     # ]
     # results = gridsearch_siamese(params_grid, epochs=25, n=10)
 
-    # Test grid
-    params_grid = [(int(ch1), int(ch2), int(fc), lr, lw) 
-                for ch1 in [2 ** exp for exp in (1, 2)]
-                for ch2 in [2 ** exp for exp in (1, 2)]
-                for fc in [2 ** exp for exp in (1, 2)]
-                for lr in (0.001, 1)
-                for lw in ((1, 10 ** -0.5), (0.5, 0.5))]
-    results = gridsearch_siamese(params_grid, epochs=2, n=2)
-
-    res2 = sort_dict(results["siamese2"])
-    res10 = sort_dict(results["siamese10"])
+    # res2 = sort_dict(results["siamese2"])
+    # res10 = sort_dict(results["siamese10"])
 
     # Save to pickle
-    with open("./results/grid_search_res2.pkl", "wb") as f:
-        pkl.dump(res2, f)
-    with open("./results/grid_search_res10.pkl", "wb") as f:
-        pkl.dump(res10, f)
+    # with open("./results/grid_search_res2.pkl", "wb") as f:
+    #     pkl.dump(res2, f)
+    # with open("./results/grid_search_res10.pkl", "wb") as f:
+    #     pkl.dump(res10, f)
 
-# %%
-# Testing
-if False:
-    res = {
-        "low": [(0.49, 0.09)],
-        "medium": [(0.58, 0.1)],
-        "high": [(0.59, 0.1)],
-    }
+    # Baseline
+    print("Gridsearching for baseline")
+    
+    # Generate params to search
+    params_grid = [
+        (int(ch1), int(ch2), int(fc1), int(fc2), lr, standard) 
+            for ch1 in [2 ** exp for exp in (3, 4, 5, 6)]
+            for ch2 in [2 ** exp for exp in (3, 4, 5, 6)]
+            for fc1 in [2 ** exp for exp in (6, 7, 8, 9)]
+            for fc2 in [2 ** exp for exp in (6, 7, 8, 9)]
+            for lr in (0.001, 0.01, 0.1, 0.25, 1)
+            for standard in [True, False]
+    ]
+    # params_grid = [
+    #     (int(ch1), int(ch2), int(fc1), int(fc2), lr, standard) 
+    #         for ch1 in [16, 32]
+    #         for ch2 in [16, 32]
+    #         for fc1 in [12, 64]
+    #         for fc2 in [12, 128]
+    #         for lr in (0.001, 0.01,)
+    #         for standard in [True, False]
+    # ]
+    results = gridsearch_baseline(params_grid, epochs=5, n=2)
+    res_base = sort_dict(results["baseline"])
 
-    # Print results in descending order by accuracy
-    {k: v for k, v in sorted(res.items(), key=lambda item: item[1], reverse=True)}
+    # Save to pickle
+    with open("./results/grid_search_res_base.pkl", "wb") as f:
+        pkl.dump(res_base, f)
+
+
 
 # %%

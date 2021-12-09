@@ -1,63 +1,45 @@
 #%%
+import pandas as pd
+import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
 from dlc_practical_prologue import generate_pair_sets
+from models import Siamese, Baseline
 
-# %%
-class Siamese(nn.Module):
-    def __init__(self, ch1=64, ch2=64, fc=64):
-        super().__init__()
+def count_params(scenario):
+    """
+    Count the number of parameters in a given model
+    """
+    phony = Siamese(scenario[0], scenario[1], scenario[2])
+    return sum(param.numel() for param in phony.parameters())
 
-        self.ch1 = ch1
-        self.ch2 = ch2
-        self.fc = fc
+def get_idx_best_acc(df):
+    """
+    Get the index of the best accuracy wrt to the standard deviation
+    The fewer the number of parameters the better
 
-        self.conv = nn.Sequential(
-            nn.Conv2d(1, self.ch1, 3),
-            nn.MaxPool2d(2),
-            nn.ReLU(),
-            nn.BatchNorm2d(self.ch1),
-            nn.Conv2d(self.ch1, self.ch2, 6),
-            nn.ReLU(),
-            nn.BatchNorm2d(self.ch2)
-        )
+    Made into a function, so we can get the best id by not just taking the highest accuracy (and taking into account the std or the nb of params for example)
+    """
+    # return np.argmin(df["nb_params"][df["accuracy"] <= df.loc[index_best, "accuracy"] + df.loc[index_best, "std"]])
+    return np.argmax(df["accuracy"])
 
-        self.fc1 = nn.Sequential(
-            nn.Linear(self.ch2, self.fc),
-            nn.ReLU(),
-            nn.BatchNorm1d(self.fc),
-            nn.Linear(self.fc, 10),
-            nn.ReLU()
-        )
 
-        self.fc2 = nn.Sequential(
-            nn.Linear(20, 2),
-            nn.ReLU()
-        )
-
-    def forward(self, x):
-        x1, x2 = x[:, 0], x[:, 1]
-        x1 = x1.unsqueeze(1)
-        x2 = x2.unsqueeze(1)
-
-        x1 = self.conv(x1)
-        x1 = self.fc1(x1.view(-1, self.ch2))
-        x2 = self.conv(x2)
-        x2 = self.fc1(x2.view(-1, self.ch2))
-
-        x = torch.cat((x1, x2), dim=1)
-        x = self.fc2(x)
-        return x, (x1, x2)
-
-#%%
 def standardize(data):
+    """
+    Standardize data by substracting mean and dividing by std
+    """
     mean, std = data.mean(), data.std()
     return (data - mean)/std
 
 def siamese_accuracy(model, data_input, data_target):
+    """
+    Compute accuracy of siamese network
+    """
+    
     # Generate predictions
     with torch.no_grad():
         pred2, (pred10_1, pred10_2) = model(data_input)
@@ -72,7 +54,11 @@ def siamese_accuracy(model, data_input, data_target):
     accuracy10 = (pred_class10 == data_target).float().mean().item()
     return accuracy2, accuracy10
 
-def train_siamese(train_input, train_target, train_classes, loss_weights, ch1=64, ch2=64, fc=64, lr=0.25, epochs=15, mini_batch_size=100, verb=True):
+def train_siamese(train_input, train_target, train_classes, loss_weights, ch1=64, ch2=64, fc=64, lr=0.25, epochs=15, mini_batch_size=100, verb=False):
+    """
+    Train siamese network
+    """
+    
     model = Siamese(ch1, ch2, fc)
     nb_samples = train_input.size(0)
 
@@ -87,7 +73,7 @@ def train_siamese(train_input, train_target, train_classes, loss_weights, ch1=64
             pred2, (pred10_1, pred10_2) = model(train_input[b:b + mini_batch_size])
 
             # Compute losses
-            # mnist classees losses
+            # mnist classes losses
             loss10_1 = criterion(pred10_1, train_classes[b:b + mini_batch_size, 0])
             loss10_2 = criterion(pred10_2, train_classes[b:b + mini_batch_size, 1])
             loss10 = loss10_1 + loss10_2
@@ -110,21 +96,72 @@ def train_siamese(train_input, train_target, train_classes, loss_weights, ch1=64
             print(f"10-classes train accuracy: {train_acc10 * 100:.2f}%")
     
     return model
+
 #%%
-
 if __name__ == "__main__":
-    # Train the network
-    N = 1000
-    train_input, train_target, train_classes, test_input, test_target, test_classes = generate_pair_sets(N)
-    train_input, test_input = standardize(train_input), standardize(test_input)
-    loss_weights = (1, 10 ** -0.5)
+    try:
+        # Load gridsearch results
+        res2 = pd.read_pickle("./results/res2.pkl").reset_index(drop=True)
+        res10 = pd.read_pickle("./results/res10.pkl").reset_index(drop=True)
+        
+        # Count the number of params for each model
+        #res2["nb_params"] = res2["scenario"].apply(count_params)
+        #res10["nb_params"] = res10["scenario"].apply(count_params)
 
-    model = train_siamese(train_input, train_target, train_classes, loss_weights=loss_weights, epochs=25, mini_batch_size=100, lr=0.1)
+        # Get best params from gridsearch
+        params = []
+        for df in [res2, res10]:
+            best_idx = get_idx_best_acc(df)
+            best_scen = df.loc[best_idx, "scenario"]
+            params.append(best_scen)
+            print("Best parameters loaded from gridsearch for model:\n" \
+                    f"ch1: {best_scen[0]}, ch2: {best_scen[1]}, fc: {best_scen[2]}, lr: {best_scen[3]}, loss_weights: {best_scen[4]}")
+    except Exception:
+        # If there is any error loading the grisearch results
+        print("Could not load grisearch results, hardcoding it")
+        params = []
+        params.append((64, 8, 64, 1, (1, 1)))  # 2-classes
+        params.append((64, 16, 64, 0.1, (0, 1)))  # 10-classes
 
-    # Once finished, print test accuracy
-    test_acc2, test_acc10 = siamese_accuracy(model, test_input, test_target)
-    print("\nTest accuracy:")
-    print(f"2-classes test accuracy: {test_acc2 * 100:.2f}%")
-    print(f"10-classes test accuracy: {test_acc10 * 100:.2f}%")
+    # Generate data
+    N, k = 1000, 10
+    data = [generate_pair_sets(N) for _ in range(k)]
+
+    # Train and test model on each of the dataset
+    scores = []
+    for i, d in enumerate(data):
+        print(f"{i + 1}/{len(data)}")
+
+        train_input, train_target, train_classes, test_input, test_target, test_classes = d
+
+        # Standardize
+        train_input, test_input = standardize(train_input), standardize(test_input)
+
+        # Add baseline model
+
+        # Train the 2-classes network
+        model2 = train_siamese(train_input, train_target, train_classes, ch1=params[0][0], ch2=params[0][1], fc=params[0][2], epochs=25, mini_batch_size=100, lr=params[0][3], loss_weights=params[0][4])
+
+        # Train the 10-classes network
+        model10 = train_siamese(train_input, train_target, train_classes, ch1=params[1][0], ch2=params[1][1], fc=params[1][2], epochs=25, mini_batch_size=100, lr=params[1][3], loss_weights=params[1][4])
+
+        # Once finished, print test accuracies
+        test_acc2, _ = siamese_accuracy(model2, test_input, test_target)
+        _, test_acc10 = siamese_accuracy(model10, test_input, test_target)
+        scores.append((test_acc2, test_acc10))
+        print(f"2-classes test accuracy: {test_acc2 * 100:.2f}%")
+        print(f"10-classes test accuracy: {test_acc10 * 100:.2f}%")
+    
+    scores = torch.FloatTensor(scores) 
+    test_acc2 = scores[:, 0] * 100
+    test_acc10 = scores[:, 1] * 100
+    print(f"Averages over {k} runs:")
+    print(f"2-classees test_error {test_acc2.mean():.02f}% (std {test_acc2.std():.02f})")
+    print(f"10-classees test_error {test_acc10.mean():.02f}% (std {test_acc10.std():.02f})")
 
 # %%
+"""
+Averages over 10 runs:
+2-classees test_error 91.82% (std 1.08)
+10-classees test_error 97.35% (std 0.44)
+"""
