@@ -6,8 +6,10 @@ import pickle as pkl
 import torch
 
 from dlc_practical_prologue import generate_pair_sets
-from siamese import train_siamese, standardize, siamese_accuracy
-from models import train_baseline, baseline_accuracy
+from train_test import baseline_accuracy, siamese_accuracy
+from train_test import train_baseline, train_siamese 
+from train_test import standardize
+from models import Baseline, Siamese 
 
 #%%
 def gridsearch_siamese(params_grid, n=2, epochs=15, verb=True):
