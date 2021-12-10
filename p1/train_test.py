@@ -185,7 +185,7 @@ if __name__ == "__main__":
 
     # Generate data
     # !! DON'T FORGET TO EDIT K !!
-    N, k = 1000, 1
+    N, k = 1000, 10
     data = [generate_pair_sets(N) for _ in range(k)]
 
     # Train and test model on each of the dataset
@@ -238,9 +238,7 @@ if __name__ == "__main__":
 
 """
 Averages over 10 runs:
-baseline test accuracy 84.24% (std 2.74)
-2-classes test accuracy 91.75% (std 1.17)
-10-classes test accuracy 97.25% (std 0.31)
+baseline test accuracy 83.23% (std 1.17)
+2-classes test accuracy 91.50% (std 1.65)
+10-classes test accuracy 97.23% (std 0.57)
 """
-
-# %%
