@@ -1,4 +1,3 @@
-#%%
 import os
 import time
 
@@ -11,11 +10,12 @@ from train_test import train_baseline, train_siamese
 from train_test import standardize
 from models import Baseline, Siamese 
 
-#%%
 def gridsearch_siamese(params_grid, n=2, epochs=15, verb=True):
-    # Loop through each scenario, train the network n times
-    # and compute accuracy
-    # Return a dict with all scenarios and mean accuracies (+std)
+    """
+    Loop through each scenario, train the network n times
+    and compute accuracy
+    Return a dict with all scenarios and mean accuracies (+std)
+    """
 
     # Nb of pairs to generate
     N = 1000
@@ -62,9 +62,11 @@ def gridsearch_siamese(params_grid, n=2, epochs=15, verb=True):
     return grid_results
 
 def gridsearch_baseline(params_grid, epochs=15, n=2, verb=True):
-    # Loop through each scenario, train the network n times
-    # and compute accuracy
-    # Return a dict with all scenarios and mean accuracies (+std)
+    """
+    Loop through each scenario, train the network n times
+    and compute accuracy
+    Return a dict with all scenarios and mean accuracies (+std)
+    """
 
     # Generate data
     N = 1000
@@ -90,7 +92,7 @@ def gridsearch_baseline(params_grid, epochs=15, n=2, verb=True):
                 train_input, test_input = standardize(train_input), standardize(test_input)
 
             # Train the network wrt scenario
-            _, train_acc, test_acc, model = train_baseline(train_input, train_target, ch1=ch1, ch2=ch2, fc1=fc1, fc2=fc2, lr=lr, epochs=epochs, verb=True)
+            _, model = train_baseline(train_input, train_target, ch1=ch1, ch2=ch2, fc1=fc1, fc2=fc2, lr=lr, epochs=epochs, verb=True, eval=False)
 
             # Compute test accuracy
             test_acc = baseline_accuracy(model, test_input, test_target)
@@ -108,11 +110,14 @@ def gridsearch_baseline(params_grid, epochs=15, n=2, verb=True):
     return grid_results
 
 def sort_dict(results, reverse=True):
+    """
+    Sort result dict by highest accuracy
+    """
+    
     return {k: v for k, v in sorted(results.items(), key=lambda item: item[1], reverse=True)}
 
-#%%
 if __name__ == "__main__":
-    os.environ["PYTORCH_DATA_DIR"] = "/home/olivier/Documents/projects/courses/DL/data"
+    #os.environ["PYTORCH_DATA_DIR"] = "/home/olivier/Documents/projects/courses/DL/data"
 
     # Siamese
     # print("Gridsearching for siamese")
@@ -165,7 +170,3 @@ if __name__ == "__main__":
     # Save to pickle
     with open("./results/grid_search_res_base.pkl", "wb") as f:
         pkl.dump(res_base, f)
-
-
-
-# %%

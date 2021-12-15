@@ -1,4 +1,3 @@
-#%%
 import time
 
 import pickle
@@ -39,15 +38,18 @@ def siamese_accuracy(model, data_input, data_target):
     accuracy10 = (pred_class10 == data_target).float().mean().item()
     return accuracy2, accuracy10
 
-def train_baseline(train_input, train_target, test_input, test_target, ch1, ch2, fc1, fc2, mini_batch_size=100, epochs=20, lr=1e-1, verb=True):
-
+def train_baseline(train_input, train_target, test_input, test_target, ch1, ch2, fc1, fc2, mini_batch_size=100, epochs=20, lr=1e-1, verb=True, eval=True):
+    """
+    Train Baseline model
+    """
+    
     info = {"train_acc_loss": [], "test_acc_loss": [], "train_acc": [], "test_acc": []}
 
     model = Baseline(ch1, ch2, fc1, fc2)
     optimizer = optim.SGD(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
 
-    for _ in range(epochs):
+    for e in range(epochs):
         train_acc_loss, test_acc_loss = 0, 0
 
         model.train()
@@ -62,23 +64,33 @@ def train_baseline(train_input, train_target, test_input, test_target, ch1, ch2,
         info["train_acc_loss"].append(train_acc_loss)
 
         # Eval mode
-        model.eval()
-        with torch.no_grad():
-            # Compute test loss
-            for b in range(0, test_input.size(0), mini_batch_size):
-                output = model(test_input.narrow(0, b, mini_batch_size))
-                loss = criterion(output, test_target.narrow(0, b, mini_batch_size))
-                test_acc_loss += loss.item()
-            info["test_acc_loss"].append(test_acc_loss)
+        if eval:
+            model.eval()
+            with torch.no_grad():
+                # Compute test loss
+                for b in range(0, test_input.size(0), mini_batch_size):
+                    output = model(test_input.narrow(0, b, mini_batch_size))
+                    loss = criterion(output, test_target.narrow(0, b, mini_batch_size))
+                    test_acc_loss += loss.item()
+                info["test_acc_loss"].append(test_acc_loss)
 
-            #Append accuracies
-            info["train_acc"].append(baseline_accuracy(model, train_input, train_target))
-            info["test_acc"].append(baseline_accuracy(model, test_input, test_target))
+                #Append accuracies
+                info["train_acc"].append(baseline_accuracy(model, train_input, train_target))
+                info["test_acc"].append(baseline_accuracy(model, test_input, test_target))
+
+            # After 5th epoch, print accuracy
+            if e % 5  == 4 and verb:
+                print(f"{e + 1}/{epochs} epochs:")
+                print(f"2-classes train accuracy: {test_acc2 * 100:.2f}%")
+                print(f"10-classes train accuracy: {test_acc10 * 100:.2f}%")
 
     return info, model
         
 def train_siamese(train_input, train_target, train_classes, loss_weights, ch1=64, ch2=64, fc=64, lr=0.25, epochs=15, mini_batch_size=100, verb=False):
-
+    """
+    Train Siamese network
+    """
+    
     info = {"train_acc_loss": [], "test_acc_loss": [], "train_acc2": [], "train_acc10": [], "test_acc2": [], "test_acc10": []}
     
     model = Siamese(ch1, ch2, fc)
@@ -148,12 +160,11 @@ def train_siamese(train_input, train_target, train_classes, loss_weights, ch1=64
         # After 5th epoch, print accuracy
         if e % 5  == 4 and verb:
             print(f"{e + 1}/{epochs} epochs:")
-            print(f"2-classes train accuracy: {train_acc2 * 100:.2f}%")
-            print(f"10-classes train accuracy: {train_acc10 * 100:.2f}%")
+            print(f"2-classes test accuracy: {test_acc2 * 100:.2f}%")
+            print(f"10-classes test accuracy: {test_acc10 * 100:.2f}%")
     
     return info, model
 
-#%%
 if __name__ == "__main__":
     t1 = time.perf_counter()
 
@@ -184,7 +195,6 @@ if __name__ == "__main__":
         params.append((64, 16, 64, 0.1, (0, 1)))  # 10-classes
 
     # Generate data
-    # !! DON'T FORGET TO EDIT K !!
     N, k = 1000, 10
     data = [generate_pair_sets(N) for _ in range(k)]
 
