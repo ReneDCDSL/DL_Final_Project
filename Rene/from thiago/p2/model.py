@@ -33,9 +33,9 @@ class Sequential(Module):
         for module in self.module_lst:
             module.SGD(eta, momentum)'''
             
-    def update_parameters(self, eta):
+    def update_parameters(self, eta, momentum):
         for module in self.module_lst:
-            module.update_parameters(eta)
+            module.update_parameters(eta, momentum)
             
     def parameters(self):
         lst = []

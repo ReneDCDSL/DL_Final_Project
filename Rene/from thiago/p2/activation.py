@@ -23,8 +23,8 @@ class ReLU(Module):
     '''def SGD(self, eta, momentum):
         return'''
     
-    def parameters(self):
-        return []
+    def parameters(self, eta, momentum):
+        return 
     
     def update_parameters(self, eta):
         return
@@ -51,8 +51,8 @@ class Tanh(Module):
     '''def SGD(self, eta, momentum):
         return'''
     
-    def parameters(self):
-        return []
+    def parameters(self, eta, momentum):
+        return 
     
     def update_parameters(self, eta):
         return
