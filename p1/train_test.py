@@ -1,7 +1,6 @@
 import time
 
 import pickle
-import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -10,9 +9,13 @@ import torch.optim as optim
 
 from dlc_practical_prologue import generate_pair_sets
 from models import Baseline, Siamese
-from utils import count_params, get_idx_best_acc, standardize
+from utils import load_gridsearch, standardize
 
 def baseline_accuracy(model, data_input, data_target):
+    """
+    Compute accuracy of baseline model
+    """
+    
     with torch.no_grad():
         output = model(data_input)
         _, preds = torch.max(output, 1)
@@ -21,7 +24,7 @@ def baseline_accuracy(model, data_input, data_target):
 
 def siamese_accuracy(model, data_input, data_target):
     """
-    Compute accuracy of siamese network
+    Compute accuracy of siamese model
     """
     
     # Generate predictions
@@ -75,14 +78,15 @@ def train_baseline(train_input, train_target, test_input, test_target, ch1, ch2,
                 info["test_acc_loss"].append(test_acc_loss)
 
                 #Append accuracies
-                info["train_acc"].append(baseline_accuracy(model, train_input, train_target))
-                info["test_acc"].append(baseline_accuracy(model, test_input, test_target))
+                train_acc = baseline_accuracy(model, train_input, train_target)
+                test_acc = baseline_accuracy(model, test_input, test_target)
+                info["train_acc"].append(train_acc)
+                info["test_acc"].append(test_acc)
 
             # After 5th epoch, print accuracy
             if e % 5  == 4 and verb:
                 print(f"{e + 1}/{epochs} epochs:")
-                print(f"2-classes train accuracy: {test_acc2 * 100:.2f}%")
-                print(f"10-classes train accuracy: {test_acc10 * 100:.2f}%")
+                print(f"baseline test accuracy: {test_acc * 100:.2f}%")
 
     return info, model
         
@@ -170,15 +174,14 @@ if __name__ == "__main__":
 
     try:
         # Load gridsearch results
-        resbase = pd.read_pickle("./results/res_base.pkl").reset_index(drop=True)
-        res2 = pd.read_pickle("./results/res2.pkl").reset_index(drop=True)
-        res10 = pd.read_pickle("./results/res10.pkl").reset_index(drop=True)
+        resbase = load_gridsearch("grid_search_res_base.pkl")
+        res2 = load_gridsearch("grid_search_res2.pkl")
+        res10 = load_gridsearch("grid_search_res10.pkl")
 
         # Get best params from gridsearch
         params = []
-        for i, df in enumerate([resbase, res2, res10]):
-            best_idx = get_idx_best_acc(df)
-            best_scen = df.loc[best_idx, "scenario"]
+        for i, res_dict in enumerate([resbase, res2, res10]):
+            best_scen = next(iter(res_dict))
             params.append(best_scen)
             if i == 0:
                 print("Best parameters loaded from gridsearch for baseline:\n" \
@@ -187,12 +190,13 @@ if __name__ == "__main__":
                 print("Best parameters loaded from gridsearch for model:\n" \
                     f"ch1: {best_scen[0]}, ch2: {best_scen[1]}, fc: {best_scen[2]}, lr: {best_scen[3]}, loss_weights: {best_scen[4]}")
     except Exception as e:
-        # If there is any error loading the gridsearch results
         print("Could not load gridsearch results, hardcoding it")
-        params = []
-        params.append((64, 64, 128, 128, 0.1, False))  # baseline
-        params.append((64, 8, 64, 1, (1, 1)))  # 2-classes
-        params.append((64, 16, 64, 0.1, (0, 1)))  # 10-classes
+        print(e)
+        params = [
+            (64, 64, 128, 128, 0.1, False),  # baseline
+            (64, 8, 64, 1, (1, 1)),  # siamese2
+            (64, 16, 64, 0.1, (0, 1)),  #siamese10
+        ]
 
     # Generate data
     N, k = 1000, 10
@@ -229,8 +233,8 @@ if __name__ == "__main__":
         print(f"baseline test accuracy: {base_acc * 100:.2f}%")
         print(f"2-classes test accuracy: {test_acc2 * 100:.2f}%")
         print(f"10-classes test accuracy: {test_acc10 * 100:.2f}%")
-    
-    scores = torch.FloatTensor(scores) 
+
+    scores = torch.FloatTensor(scores)
     base_acc = scores[:, 0] * 100
     test_acc2 = scores[:, 1] * 100
     test_acc10 = scores[:, 2] * 100
