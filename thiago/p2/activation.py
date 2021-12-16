@@ -26,6 +26,9 @@ class ReLU(Module):
     def zero_gradient(self):
         return
 
+    def parameters(self):
+        return
+
 class Tanh(Module):
     def __init__(self):
         super(Tanh, self).__init__()
@@ -46,6 +49,9 @@ class Tanh(Module):
         return
 
     def zero_gradient(self):
+        return
+
+    def parameters(self):
         return
 
 

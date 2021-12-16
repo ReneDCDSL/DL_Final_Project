@@ -52,6 +52,9 @@ def plot_set(data_input, data_mask):
     train_scatter_false = train_scatter[train_scatter[:,2] == 0]
     train_scatter_true = train_scatter[train_scatter[:,2] == 1]
 
+
     plt.figure(figsize=(5, 5))
     plt.scatter(train_scatter_false[:,0], train_scatter_false[:,1], )
     plt.scatter(train_scatter_true[:,0], train_scatter_true[:,1], )
+    plt.title("Data distribution")
+    plt.show()

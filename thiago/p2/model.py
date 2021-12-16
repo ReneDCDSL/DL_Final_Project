@@ -9,8 +9,8 @@ class Module(object):
         pass
 
     def parameters(self):
-
-        return []
+        pass
+        #return []
 
 
 class Sequential(Module):
@@ -37,7 +37,10 @@ class Sequential(Module):
     def parameters(self):
         lst = []
         for module in self.module_lst:
-            lst.append(module.parameters())
+            if module.parameters() == None:
+                pass
+            else:
+                lst.append(module.parameters())
         return lst
 
     def zero_gradient(self):
