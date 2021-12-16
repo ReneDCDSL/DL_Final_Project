@@ -19,9 +19,7 @@ class Linear(Module):
         self.dl_dw = torch.empty(self.w.size())
         self.dl_db = torch.empty(self.b.size())
 
-        #self.uw = torch.empty(self.w.size()).normal_(0, 1e-6)
-        #self.ub = torch.empty(self.b.size()).normal_(0, 1e-6)
-
+        # Initialize velocities
         self.uw = torch.zeros(self.w.size())
         self.ub = torch.zeros(self.b.size())
 
@@ -57,9 +55,6 @@ class Linear(Module):
 
         self.w = self.w - self.uw
         self.b = self.b - self.ub
-
-        #self.w = self.w - self.dl_dw * eta
-        #self.b = self.b - self.dl_db * eta
 
     def zero_gradient(self):
         self.dl_dw.zero_()

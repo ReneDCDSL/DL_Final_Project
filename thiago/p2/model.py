@@ -37,10 +37,10 @@ class Sequential(Module):
     def parameters(self):
         lst = []
         for module in self.module_lst:
-            if module.parameters() == None:
-                pass
-            else:
-                lst.append(module.parameters())
+            #if module.parameters() == None:
+                #pass
+            #else:
+            lst.append(module.parameters())
         return lst
 
     def zero_gradient(self):
