@@ -10,6 +10,8 @@ To train and test the final models, run
 python3 p1/train_test.py
 ```
 
+A pdf report summarizing the steps realized is also in the `p1` directory.
+
 Dependencies:
 - `torch`
 - (optional) `matplotlib` and `pandas` if you wish to reproduce the plots (cf. `p1/plots.ipynb`)
