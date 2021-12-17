@@ -10,7 +10,7 @@ To train and test the final models, run
 python3 p1/train_test.py
 ```
 
-A pdf report summarizing the steps realized is also in the `p1` directory.
+A pdf report (`p1.pdf`) summarizing the steps realized is provided.
 
 Dependencies:
 - `torch`
@@ -19,6 +19,9 @@ Dependencies:
 ## Project 2 - Mini deep-learning framework
 All relevant code to this project is in the `p2` directory.  
 To train and test the final models, run
+
 ```python
 python3 p2/test.py
 ```
+
+A pdf report (`p2.pdf`) summarizing the structure and the different files realized is provided.
