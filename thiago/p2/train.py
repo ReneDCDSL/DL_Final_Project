@@ -1,3 +1,5 @@
+#https://github.com/tileb1/Deep-Learning-framework
+
 import math
 import torch
 from activation import MSELoss
@@ -42,7 +44,7 @@ def train_model(model, train_input, train_target,
 
 
         if show_graphs == True:
-            if e % 3 ==  0:
+            if e % 1 ==  0:
                     output = model.forward(train_input)
                     pred   = torch.where(output < 0.5, 0, 1)
                     scatter = torch.cat((train_input, pred),1)
@@ -52,6 +54,7 @@ def train_model(model, train_input, train_target,
                     plt.figure(figsize=(5, 5))
                     plt.scatter(scatter_false[:,0], scatter_false[:,1], )
                     plt.scatter(scatter_true[:,0], scatter_true[:,1], )
+                    plt.show()
 
 
 

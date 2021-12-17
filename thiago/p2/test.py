@@ -1,3 +1,6 @@
+#https://github.com/tileb1/Deep-Learning-framework
+
+
 from model import Module, Sequential
 from activation import ReLU, Tanh, MSELoss
 from linear import Linear
@@ -21,7 +24,7 @@ train_input, train_target_one_hot, test_input, test_target_one_hot, test_target,
 input_units = 2
 output_units = 1
 hidden = 25
-nb_epochs = 100
+nb_epochs = 50
 mini_batch_size = 100
 eta = 1e-3
 momentum = 0.9
@@ -52,4 +55,4 @@ train_model(mini_model, train_input, train_target,
                         test_input,  test_target,
                         nb_epochs,   mini_batch_size,
                         eta = eta,   momentum = momentum,
-                        show_graphs = False, show_steps = True)
+                        show_graphs = True, show_steps = True)
