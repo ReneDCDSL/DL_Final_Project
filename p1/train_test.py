@@ -67,7 +67,7 @@ def train_baseline(train_input, train_target, test_input, test_target, ch1, ch2,
         info["train_acc_loss"].append(train_acc_loss)
 
         # Eval mode
-        if eval:
+        if e % 5  == 4 and eval:
             model.eval()
             with torch.no_grad():
                 # Compute test loss
@@ -83,14 +83,13 @@ def train_baseline(train_input, train_target, test_input, test_target, ch1, ch2,
                 info["train_acc"].append(train_acc)
                 info["test_acc"].append(test_acc)
 
-            # After 5th epoch, print accuracy
-            if e % 5  == 4 and verb:
-                print(f"{e + 1}/{epochs} epochs:")
-                print(f"baseline test accuracy: {test_acc * 100:.2f}%")
+                if verb:
+                    print(f"{e + 1}/{epochs} epochs:")
+                    print(f"baseline test accuracy: {test_acc * 100:.2f}%")
 
     return info, model
         
-def train_siamese(train_input, train_target, train_classes, loss_weights, ch1=64, ch2=64, fc=64, lr=0.25, epochs=15, mini_batch_size=100, verb=False):
+def train_siamese(train_input, train_target, train_classes, loss_weights, ch1=64, ch2=64, fc=64, lr=0.25, epochs=15, mini_batch_size=100, verb=True):
     """
     Train Siamese network
     """
@@ -132,40 +131,40 @@ def train_siamese(train_input, train_target, train_classes, loss_weights, ch1=64
 
         info["train_acc_loss"].append(train_acc_loss)
 
-        # Eval loop
-        model.eval()
-        with torch.no_grad():
-            for b in range(0, nb_samples, mini_batch_size):
-                # Compute output
-                pred2, (pred10_1, pred10_2) = model(train_input[b:b + mini_batch_size])
+        # Eval loop every 5th epoch, print accuracy
+        if e % 5  == 4:
+            model.eval()
+            with torch.no_grad():
+                for b in range(0, nb_samples, mini_batch_size):
+                    # Compute output
+                    pred2, (pred10_1, pred10_2) = model(train_input[b:b + mini_batch_size])
 
-                # Compute test losses
-                # mnist classes losses
-                loss10_1 = criterion(pred10_1, train_classes[b:b + mini_batch_size, 0])
-                loss10_2 = criterion(pred10_2, train_classes[b:b + mini_batch_size, 1])
-                loss10 = loss10_1 + loss10_2
-                # target loss
-                loss2 = criterion(pred2, train_target[b:b + mini_batch_size])
+                    # Compute test losses
+                    # mnist classes losses
+                    loss10_1 = criterion(pred10_1, train_classes[b:b + mini_batch_size, 0])
+                    loss10_2 = criterion(pred10_2, train_classes[b:b + mini_batch_size, 1])
+                    loss10 = loss10_1 + loss10_2
+                    # target loss
+                    loss2 = criterion(pred2, train_target[b:b + mini_batch_size])
 
-                # Lin. comb. of both losses
-                tot_loss = loss_weights[0] * loss2 + loss_weights[1] * loss10
-                test_acc_loss += tot_loss.item()
+                    # Lin. comb. of both losses
+                    tot_loss = loss_weights[0] * loss2 + loss_weights[1] * loss10
+                    test_acc_loss += tot_loss.item()
 
-            info["test_acc_loss"].append(test_acc_loss)
+                info["test_acc_loss"].append(test_acc_loss)
 
-            #Append accuracies
-            train_acc2, train_acc10 = siamese_accuracy(model, train_input, train_target)
-            test_acc2, test_acc10 = siamese_accuracy(model, test_input, test_target)
-            info["train_acc2"].append(train_acc2)
-            info["train_acc10"].append(train_acc10)
-            info["test_acc2"].append(test_acc2)
-            info["test_acc10"].append(test_acc10)
-
-        # After 5th epoch, print accuracy
-        if e % 5  == 4 and verb:
-            print(f"{e + 1}/{epochs} epochs:")
-            print(f"2-classes test accuracy: {test_acc2 * 100:.2f}%")
-            print(f"10-classes test accuracy: {test_acc10 * 100:.2f}%")
+                #Append accuracies
+                train_acc2, train_acc10 = siamese_accuracy(model, train_input, train_target)
+                test_acc2, test_acc10 = siamese_accuracy(model, test_input, test_target)
+                info["train_acc2"].append(train_acc2)
+                info["train_acc10"].append(train_acc10)
+                info["test_acc2"].append(test_acc2)
+                info["test_acc10"].append(test_acc10)
+            
+                if verb:
+                    print(f"{e + 1}/{epochs} epochs:")
+                    print(f"2-classes test accuracy: {test_acc2 * 100:.2f}%")
+                    print(f"10-classes test accuracy: {test_acc10 * 100:.2f}%")
     
     return info, model
 

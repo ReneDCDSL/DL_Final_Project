@@ -128,7 +128,7 @@ def run_gridsearch(params_grid, mode="baseline", epochs=15, n=5, save=True):
         res10 = sort_dict(results["siamese10"])
         
         if save:
-            with open("./results/gridsearch_res2.tmp.pkl", "wb") as f:
+            with open("./results/gridsearch_res2.pkl", "wb") as f:
                  pkl.dump(res2, f)
             with open("./results/gridsearch_res10.tmp.pkl", "wb") as f:
                  pkl.dump(res10, f)
@@ -138,12 +138,11 @@ def run_gridsearch(params_grid, mode="baseline", epochs=15, n=5, save=True):
         res_dict = sort_dict(results["baseline"])
         
         if save:
-            with open("./results/gridsearch_res_base.tmp.pkl", "wb") as f:
+            with open("./results/gridsearch_res_base.pkl", "wb") as f:
                 pkl.dump(res_dict, f)
         return res_dict
     
 if __name__ == "__main__":
-    os.environ["PYTORCH_DATA_DIR"] = "/home/olivier/Documents/projects/courses/DL/data"
 
     # Siamese
     print("Gridsearching for siamese")
@@ -172,16 +171,5 @@ if __name__ == "__main__":
            for lr in (0.001, 0.01, 0.1, 0.25, 1)
            for standard in [True, False]
     ]
-    
-    # Dummy grid for baseline
-    # params_grid = [
-    #     (int(ch1), int(ch2), int(fc1), int(fc2), lr, standard) 
-    #         for ch1 in [16, 32]
-    #         for ch2 in [16, 32]
-    #         for fc1 in [12, 64]
-    #         for fc2 in [12, 128]
-    #         for lr in (0.001, 0.01,)
-    #         for standard in [False]
-    # ]
     
     run_gridsearch(params_grid, mode="baseline", epochs=25, n=10)
