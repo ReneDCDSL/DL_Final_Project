@@ -1,5 +1,3 @@
-#https://github.com/tileb1/Deep-Learning-framework
-
 import torch
 import math
 from torch.nn import functional as F
